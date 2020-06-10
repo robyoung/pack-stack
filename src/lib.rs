@@ -15,6 +15,7 @@ mod performance;
 pub struct Detector {
     canny: edge::Canny,
     add_box: bool,
+    box_match: bool, // TODO: rename this, it's awful
 }
 
 #[wasm_bindgen]
@@ -22,15 +23,50 @@ impl Detector {
     /// Create a new detector of a given size
     pub fn new(width: u32, height: u32, add_box: bool) -> Detector {
         Detector {
-            canny: edge::Canny::new(
-                width as usize,
-                height as usize,
-                150.0,
-                300.0,
-                255,
-                false,
-            ),
+            canny: edge::Canny::new(width as usize, height as usize, 50.0, 300.0, 255, false),
             add_box,
+            box_match: false,
+        }
+    }
+
+    /// has a box been seen?
+    pub fn box_match(&self) -> bool {
+        self.box_match
+    }
+
+    /// update the box_match flag
+    fn update_box_match(&mut self, buf: &RgbaImage) {
+        self.box_match = false;
+
+        let width = self.canny.width as u32;
+        let height = self.canny.height as u32;
+
+        let (top_left, bottom_right) = get_corners(width, height);
+        let mut hits = 0;
+        let line_colour = self.canny.line_colour();
+
+        // horizontal lines
+        for y in [top_left.1, bottom_right.1].iter() {
+            for x in (top_left.0)..(bottom_right.0) {
+                // if any pixel either side of the horizontal line
+                if ((y - 1)..(y + 1)).any(|y| *buf.get_pixel(x, y) == line_colour) {
+                    hits += 1;
+                }
+            }
+        }
+
+        // vertical lines
+        for x in [top_left.0, bottom_right.0].iter() {
+            for y in (top_left.1 + 2)..(bottom_right.0 - 2) {
+                if ((x - 1)..(x + 1)).any(|x| *buf.get_pixel(x,y) == line_colour) {
+                    hits += 1;
+                }
+            }
+        }
+
+        let circumference = (bottom_right.1 - top_left.1) * 2 + (bottom_right.0 + top_left.0) * 2;
+        if hits as f32 / circumference as f32 > 0.9 {
+            self.box_match = true;
         }
     }
 
@@ -42,6 +78,7 @@ impl Detector {
         let mut input = RgbaImage::from_raw(width, height, input.0).expect("Could not load image");
 
         self.canny.detect(&mut input);
+        self.update_box_match(&input);
 
         if self.add_box {
             for pixel in get_line_pixels(get_corners(width, height), 1) {
