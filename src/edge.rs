@@ -21,7 +21,7 @@ pub struct Canny {
     pub height: usize,
     low_threshold: f32,
     high_threshold: f32,
-    line_shade: u8,
+    line_colour: image::Rgba<u8>,
     use_thick: bool,
 }
 
@@ -44,9 +44,13 @@ impl Canny {
             height,
             low_threshold,
             high_threshold,
-            line_shade,
+            line_colour: image::Rgba([0, 0, 0, line_shade]),
             use_thick,
         }
+    }
+
+    pub fn line_colour(&self) -> image::Rgba<u8> {
+        self.line_colour
     }
 
     pub fn detect(&mut self, src: &mut RgbaImage) {
@@ -86,7 +90,7 @@ impl Canny {
             &mut result,
             self.low_threshold,
             self.high_threshold,
-            self.line_shade,
+            self.line_colour,
             self.use_thick,
         );
     }
@@ -154,14 +158,13 @@ pub fn hysteresis(
     out: &mut RgbaImage,
     low_thresh: f32,
     high_thresh: f32,
-    line_shade: u8,
+    line_colour: image::Rgba<u8>,
     use_thick: bool,
 ) {
     #[cfg(target_arch = "wasm32")]
     let _timer = performance::Timer::new("canny::hysteresis");
     let low_thresh = low_thresh * low_thresh;
     let high_thresh = high_thresh * high_thresh;
-    let pixel = image::Rgba([0, u8::MAX, 0, line_shade]);
     let mut edges = Vec::with_capacity((width * height) as usize / 2);
 
     for y in 1..height - 1 {
@@ -171,8 +174,8 @@ pub fn hysteresis(
                 out.get_pixel(x as u32, y as u32),
             );
             // If the edge strength is higher than high_thresh, mark it as an edge.
-            if inp_pix >= high_thresh && out_pix[0] != pixel[0] {
-                out.put_pixel(x as u32, y as u32, pixel);
+            if inp_pix >= high_thresh && out_pix[0] != line_colour[0] {
+                out.put_pixel(x as u32, y as u32, line_colour);
                 edges.push((x, y));
 
                 // Track neighbors until no neighbor is >= low_thresh.
@@ -200,10 +203,10 @@ pub fn hysteresis(
                             input[((neighbor_idx.1 * width) + neighbor_idx.0) as usize],
                             out.get_pixel(neighbor_idx.0 as u32, neighbor_idx.1 as u32),
                         );
-                        if in_neighbor >= low_thresh && out_neighbor[0] != pixel[0] {
-                            out.put_pixel(neighbor_idx.0 as u32, neighbor_idx.1 as u32, pixel);
+                        if in_neighbor >= low_thresh && out_neighbor[0] != line_colour[0] {
+                            out.put_pixel(neighbor_idx.0 as u32, neighbor_idx.1 as u32, line_colour);
                             if use_thick {
-                                out.put_pixel(neighbor_idx.2 as u32, neighbor_idx.3 as u32, pixel);
+                                out.put_pixel(neighbor_idx.2 as u32, neighbor_idx.3 as u32, line_colour);
                             }
                             edges.push((neighbor_idx.0, neighbor_idx.1));
                         }
