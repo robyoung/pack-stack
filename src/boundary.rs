@@ -62,9 +62,7 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
             y + boundary_width
         };
         for x in top_left.x()..bottom_right.x() {
-            if (start..end)
-                .any(|y| *buffer.get_pixel(x, y) == line_colour)
-            {
+            if (start..end).any(|y| *buffer.get_pixel(x, y) == line_colour) {
                 hits += 1;
                 buffer.put_pixel(x, *y, hit_colour);
             } else {
@@ -78,7 +76,7 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
 
     for x in [top_left.x(), bottom_right.x()].iter() {
         // if any pixel either size of the vertical line
-        let start =if boundary_width > *x {
+        let start = if boundary_width > *x {
             0
         } else {
             x - boundary_width
@@ -89,9 +87,7 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
             x + boundary_width
         };
         for y in (top_left.y() + 1)..(bottom_right.y() - 1) {
-            if (start..end)
-                .any(|x| *buffer.get_pixel(x, y) == line_colour)
-            {
+            if (start..end).any(|x| *buffer.get_pixel(x, y) == line_colour) {
                 hits += 1;
                 buffer.put_pixel(*x, y, hit_colour);
             } else {
@@ -110,7 +106,7 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{detect, get_corners, Point};
-    use crate::edge::Canny;
+    use crate::edge::CannyBuilder;
 
     #[test]
     fn test_get_corners() {
@@ -128,14 +124,7 @@ mod tests {
     #[test]
     fn test_draw_edges() {
         let mut img = image::open("test_images/uno-7.jpg").unwrap().to_rgba();
-        let mut canny = Canny::new(
-            img.width() as usize,
-            img.height() as usize,
-            150.0,
-            300.0,
-            255,
-            false,
-        );
+        let mut canny = CannyBuilder::new(img.width() as usize, img.height() as usize).build();
 
         canny.detect(&mut img);
 
@@ -146,14 +135,7 @@ mod tests {
     #[test]
     fn test_detect_boundary() {
         let mut img = image::open("test_images/uno-7.jpg").unwrap().to_rgba();
-        let mut canny = Canny::new(
-            img.width() as usize,
-            img.height() as usize,
-            150.0,
-            300.0,
-            255,
-            false,
-        );
+        let mut canny = CannyBuilder::new(img.width() as usize, img.height() as usize).build();
 
         canny.detect(&mut img);
 

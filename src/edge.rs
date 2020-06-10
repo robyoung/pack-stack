@@ -1,15 +1,60 @@
 //! Canny edge detection
 //!
 //! Most of this is taken from https://github.com/nicksrandall/edge-detection-wasm
+use image::{buffer::ConvertBuffer, GrayImage, Rgba, RgbaImage};
 use std::{
     cmp::{max, min},
     f32, i16,
     ops::Deref,
 };
-use image::{buffer::ConvertBuffer, GrayImage, RgbaImage};
 
 #[cfg(target_arch = "wasm32")]
 use crate::performance;
+
+pub struct CannyBuilder {
+    width: usize,
+    height: usize,
+    low_threshold: Option<f32>,
+    high_threshold: Option<f32>,
+    line_colour: Option<Rgba<u8>>,
+}
+
+impl CannyBuilder {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            width,
+            height,
+            low_threshold: None,
+            high_threshold: None,
+            line_colour: None,
+        }
+    }
+
+    pub fn low_threshold(&mut self, low_threshold: f32) -> &mut CannyBuilder {
+        self.low_threshold = Some(low_threshold);
+        self
+    }
+
+    pub fn high_threshold(&mut self, high_threshold: f32) -> &mut CannyBuilder {
+        self.high_threshold = Some(high_threshold);
+        self
+    }
+
+    pub fn line_colour(&mut self, line_colour: Rgba<u8>) -> &mut CannyBuilder {
+        self.line_colour = Some(line_colour);
+        self
+    }
+
+    pub fn build(&self) -> Canny {
+        Canny::new(
+            self.width,
+            self.height,
+            self.low_threshold.unwrap_or(150.0),
+            self.high_threshold.unwrap_or(300.0),
+            self.line_colour.unwrap_or(Rgba([0, 0, 0, 255])),
+        )
+    }
+}
 
 pub struct Canny {
     gx: Vec<i16>,
@@ -21,8 +66,7 @@ pub struct Canny {
     pub height: usize,
     low_threshold: f32,
     high_threshold: f32,
-    line_colour: image::Rgba<u8>,
-    use_thick: bool,
+    line_colour: Rgba<u8>,
 }
 
 impl Canny {
@@ -31,8 +75,7 @@ impl Canny {
         height: usize,
         low_threshold: f32,
         high_threshold: f32,
-        line_shade: u8,
-        use_thick: bool,
+        line_colour: Rgba<u8>,
     ) -> Self {
         Self {
             gx: vec![0; width * height],
@@ -44,12 +87,11 @@ impl Canny {
             height,
             low_threshold,
             high_threshold,
-            line_colour: image::Rgba([0, 0, 0, line_shade]),
-            use_thick,
+            line_colour,
         }
     }
 
-    pub fn line_colour(&self) -> image::Rgba<u8> {
+    pub fn line_colour(&self) -> Rgba<u8> {
         self.line_colour
     }
 
@@ -91,7 +133,6 @@ impl Canny {
             self.low_threshold,
             self.high_threshold,
             self.line_colour,
-            self.use_thick,
         );
     }
 }
@@ -103,7 +144,6 @@ const VERTICAL_SOBEL: [i32; 9] = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
 
 /// Sobel filter for detecting horizontal gradients.
 const HORIZONTAL_SOBEL: [i32; 9] = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-
 
 /// Finds local maxima to make the edges thinner.
 pub fn non_maximum_suppression(
@@ -158,8 +198,7 @@ pub fn hysteresis(
     out: &mut RgbaImage,
     low_thresh: f32,
     high_thresh: f32,
-    line_colour: image::Rgba<u8>,
-    use_thick: bool,
+    line_colour: Rgba<u8>,
 ) {
     #[cfg(target_arch = "wasm32")]
     let _timer = performance::Timer::new("canny::hysteresis");
@@ -204,10 +243,11 @@ pub fn hysteresis(
                             out.get_pixel(neighbor_idx.0 as u32, neighbor_idx.1 as u32),
                         );
                         if in_neighbor >= low_thresh && out_neighbor[0] != line_colour[0] {
-                            out.put_pixel(neighbor_idx.0 as u32, neighbor_idx.1 as u32, line_colour);
-                            if use_thick {
-                                out.put_pixel(neighbor_idx.2 as u32, neighbor_idx.3 as u32, line_colour);
-                            }
+                            out.put_pixel(
+                                neighbor_idx.0 as u32,
+                                neighbor_idx.1 as u32,
+                                line_colour,
+                            );
                             edges.push((neighbor_idx.0, neighbor_idx.1));
                         }
                     }
@@ -310,7 +350,7 @@ pub fn atan2_approx(y: f32, x: f32) -> f32 {
 mod tests {
     extern crate test;
 
-    use super::{filter, Canny};
+    use super::{filter, CannyBuilder};
     use image;
     use test::Bencher;
 
@@ -325,14 +365,14 @@ mod tests {
         filter(width, height, &image, &mut hout, &mut vout, &mut out);
     }
 
-
     #[bench]
     fn bench_detect(b: &mut Bencher) {
         let img = image::open("test_images/test.jpg").unwrap().to_rgba();
         let width = img.width();
         let height = img.height();
 
-        let mut canny = Canny::new(width as usize, height as usize, 150.0, 300.0, 255, false);
+        let mut canny = CannyBuilder::new(width as usize, height as usize).build();
+
         b.iter(|| {
             let mut img = img.clone();
             canny.detect(&mut img);

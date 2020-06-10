@@ -15,7 +15,7 @@ mod performance;
 #[wasm_bindgen]
 pub struct Detector {
     canny: edge::Canny,
-    box_match: bool, // TODO: rename this, it's awful
+    boundary_match: bool,
 }
 
 #[wasm_bindgen]
@@ -23,14 +23,16 @@ impl Detector {
     /// Create a new detector of a given size
     pub fn new(width: u32, height: u32) -> Detector {
         Detector {
-            canny: edge::Canny::new(width as usize, height as usize, 50.0, 300.0, 255, false),
-            box_match: false,
+            canny: edge::CannyBuilder::new(width as usize, height as usize)
+                .low_threshold(50.0)
+                .build(),
+            boundary_match: false,
         }
     }
 
     /// has a box been seen?
-    pub fn box_match(&self) -> bool {
-        self.box_match
+    pub fn boundary_match(&self) -> bool {
+        self.boundary_match
     }
 
     /// detect edges
@@ -41,7 +43,7 @@ impl Detector {
         let mut input = RgbaImage::from_raw(width, height, input.0).expect("Could not load image");
 
         self.canny.detect(&mut input);
-        self.box_match = boundary::detect(&mut input, self.canny.line_colour());
+        self.boundary_match = boundary::detect(&mut input, self.canny.line_colour());
 
         Clamped(input.into_raw())
     }
