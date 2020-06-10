@@ -67,11 +67,10 @@ export class Detector {
     * Create a new detector of a given size
     * @param {number} width
     * @param {number} height
-    * @param {boolean} add_box
     * @returns {Detector}
     */
-    static new(width, height, add_box) {
-        var ret = wasm.detector_new(width, height, add_box);
+    static new(width, height) {
+        var ret = wasm.detector_new(width, height);
         return Detector.__wrap(ret);
     }
     /**
