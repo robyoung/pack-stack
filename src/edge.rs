@@ -307,8 +307,12 @@ pub fn atan2_approx(y: f32, x: f32) -> f32 {
 }
 
 #[cfg(test)]
-mod test {
-    use super::filter;
+mod tests {
+    extern crate test;
+
+    use super::{filter, Canny};
+    use image;
+    use test::Bencher;
 
     #[test]
     fn test_filter() {
@@ -320,15 +324,7 @@ mod test {
 
         filter(width, height, &image, &mut hout, &mut vout, &mut out);
     }
-}
 
-#[cfg(test)]
-mod tests {
-    extern crate test;
-
-    use super::Canny;
-    use image;
-    use test::Bencher;
 
     #[bench]
     fn bench_detect(b: &mut Bencher) {
