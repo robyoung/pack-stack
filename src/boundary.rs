@@ -1,16 +1,5 @@
+use crate::data::Rectangle;
 use image::{Rgba, RgbaImage};
-
-#[derive(Copy, Clone, PartialEq, Debug, Hash, Eq)]
-pub struct Point(u32, u32);
-
-impl Point {
-    fn x(&self) -> u32 {
-        self.0
-    }
-    fn y(&self) -> u32 {
-        self.1
-    }
-}
 
 /// ratio taken from standard card dimensions of 2.5 x 3.5
 const RATIO: f32 = 5.0 / 7.0;
@@ -18,7 +7,7 @@ const RATIO: f32 = 5.0 / 7.0;
 /// 5% margin between edge of frame and corner lines
 const MARGIN: f32 = 0.05;
 
-pub(crate) fn get_corners(width: u32, height: u32) -> (Point, Point) {
+pub(crate) fn get_corners(width: u32, height: u32) -> Rectangle {
     let height = height as f32;
     let width = width as f32;
 
@@ -27,14 +16,14 @@ pub(crate) fn get_corners(width: u32, height: u32) -> (Point, Point) {
     } else {
         (width, width / RATIO)
     };
-    let margin = (width * MARGIN).floor() as u32;
-    (
-        Point(margin, margin),
-        Point(
-            width.floor() as u32 - margin,
-            height.floor() as u32 - margin,
-        ),
-    )
+    let margin = (width * MARGIN).floor() as usize;
+    Rectangle([
+        [margin, margin],
+        [
+            width.floor() as usize - margin,
+            height.floor() as usize - margin,
+        ],
+    ])
 }
 
 pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
@@ -42,16 +31,16 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
     let height = buffer.height();
     let mut hits = 0;
 
-    let (top_left, bottom_right) = get_corners(width, height);
+    let rectangle = get_corners(width, height);
     let miss_colour = Rgba([255, 0, 0, 255]);
     let hit_colour = Rgba([0, 255, 0, 255]);
 
     // horizontal lines
     let boundary_width = (width as f32 * 0.05).ceil() as u32;
 
-    for y in [top_left.y(), bottom_right.y()].iter() {
+    for y in rectangle.iter().map(|p| p[1] as u32) {
         // if any pixel either side of the horizontal line
-        let start = if boundary_width > *y {
+        let start = if boundary_width > y {
             0
         } else {
             y - boundary_width
@@ -61,12 +50,12 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
         } else {
             y + boundary_width
         };
-        for x in top_left.x()..bottom_right.x() {
+        for x in rectangle.x_range().map(|x| x as u32) {
             if (start..end).any(|y| *buffer.get_pixel(x, y) == line_colour) {
                 hits += 1;
-                buffer.put_pixel(x, *y, hit_colour);
+                buffer.put_pixel(x, y, hit_colour);
             } else {
-                buffer.put_pixel(x, *y, miss_colour);
+                buffer.put_pixel(x, y, miss_colour);
             }
         }
     }
@@ -74,9 +63,9 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
     // vertical lines
     let boundary_width = (height as f32 * 0.05).ceil() as u32;
 
-    for x in [top_left.x(), bottom_right.x()].iter() {
+    for x in rectangle.iter().map(|p| p[0] as u32) {
         // if any pixel either size of the vertical line
-        let start = if boundary_width > *x {
+        let start = if boundary_width > x {
             0
         } else {
             x - boundary_width
@@ -86,17 +75,17 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
         } else {
             x + boundary_width
         };
-        for y in (top_left.y() + 1)..(bottom_right.y() - 1) {
+        for y in rectangle.shrink(1).y_range().map(|y| y as u32) {
             if (start..end).any(|x| *buffer.get_pixel(x, y) == line_colour) {
                 hits += 1;
-                buffer.put_pixel(*x, y, hit_colour);
+                buffer.put_pixel(x, y, hit_colour);
             } else {
-                buffer.put_pixel(*x, y, miss_colour);
+                buffer.put_pixel(x, y, miss_colour);
             }
         }
     }
 
-    let circumference = (bottom_right.1 - top_left.1) * 2 + (bottom_right.0 + top_left.0) * 2;
+    let circumference = rectangle.width() * 2 + rectangle.height() * 2;
 
     let percent = dbg!(hits as f32 / circumference as f32);
 
@@ -105,12 +94,13 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect, get_corners, Point};
+    use super::{detect, get_corners};
+    use crate::data::Rectangle;
     use crate::edge::CannyBuilder;
 
     #[test]
     fn test_get_corners() {
-        let test_box = (Point(2, 2), Point(38, 54));
+        let test_box = Rectangle([[2, 2], [38, 54]]);
 
         assert_eq!(get_corners(40, 56), test_box);
         // smallest edge used matches test_box

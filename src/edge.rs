@@ -10,6 +10,7 @@ use std::{
 
 #[cfg(target_arch = "wasm32")]
 use crate::performance;
+use crate::data::{Rectangle, Point};
 
 pub struct CannyBuilder {
     width: usize,

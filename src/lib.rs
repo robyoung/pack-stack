@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::Clamped;
 
 mod boundary;
+mod data;
 mod edge;
 #[cfg(target_arch = "wasm32")]
 mod performance;
