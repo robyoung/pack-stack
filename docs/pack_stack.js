@@ -77,8 +77,8 @@ export class Detector {
     * has a box been seen?
     * @returns {boolean}
     */
-    box_match() {
-        var ret = wasm.detector_box_match(this.ptr);
+    boundary_match() {
+        var ret = wasm.detector_boundary_match(this.ptr);
         return ret !== 0;
     }
     /**

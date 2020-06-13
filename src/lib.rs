@@ -15,7 +15,7 @@ mod performance;
 /// Preallocated canny edge detector
 #[wasm_bindgen]
 pub struct Detector {
-    canny: edge::Canny,
+    canny: edge::Canny<edge::RectangleInRectangleWindow>,
     boundary_match: bool,
 }
 
@@ -23,8 +23,13 @@ pub struct Detector {
 impl Detector {
     /// Create a new detector of a given size
     pub fn new(width: u32, height: u32) -> Detector {
+        let boundary = boundary::get_corners(width, height);
+        let window = edge::RectangleInRectangleWindow::new(
+            boundary.grow(6),
+            boundary.shrink(7),
+        );
         Detector {
-            canny: edge::CannyBuilder::new(width as usize, height as usize)
+            canny: edge::CannyBuilder::with_window(width as usize, height as usize, window)
                 .low_threshold(50.0)
                 .build(),
             boundary_match: false,

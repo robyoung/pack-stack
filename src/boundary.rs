@@ -94,9 +94,14 @@ pub(crate) fn detect(buffer: &mut RgbaImage, line_colour: Rgba<u8>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect, get_corners};
+    extern crate test;
+
+    use test::Bencher;
+
     use crate::data::Rectangle;
-    use crate::edge::CannyBuilder;
+    use crate::edge::{CannyBuilder, RectangleInRectangleWindow};
+
+    use super::{detect, get_corners};
 
     #[test]
     fn test_get_corners() {
@@ -133,5 +138,26 @@ mod tests {
 
         img.save("test_images/uno-7-with-edges-and-boundary.jpg")
             .expect("write file with edges");
+    }
+
+    #[bench]
+    fn bench_detect_boundary(b: &mut Bencher) {
+        let img = image::open("test_images/uno-7.jpg").unwrap().to_rgba();
+        let width = img.width();
+        let height = img.height();
+
+        let rect = get_corners(width, height);
+        let window = RectangleInRectangleWindow::new(
+            rect.grow(6),
+            rect.shrink(7),
+        );
+
+        let mut canny = CannyBuilder::with_window(width as usize, height as usize, window).build();
+
+        b.iter(|| {
+            let mut img = img.clone();
+            canny.detect(&mut img);
+            assert!(detect(&mut img, canny.line_colour()));
+        });
     }
 }
