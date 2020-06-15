@@ -22,6 +22,15 @@ const tick = () => {
   context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
   const imageData = context.getImageData(0, 0, video.videoWidth, video.videoHeight);
   const data = detector.detect(imageData.data);
+  if (detector.boundary_match()) {
+    console.log("CAPTURE");
+    let capture = document.createElement("canvas");
+    capture.width = output.width;
+    capture.height = output.height;
+    let captureCtx = capture.getContext("2d");
+    captureCtx.putImageData(imageData.data, 0, 0);
+    document.getElementById("captures").appendChild(capture);
+  }
   context.putImageData(new ImageData(data, video.videoWidth, video.videoHeight), 0, 0);
   window.requestAnimationFrame(tick);
 };
