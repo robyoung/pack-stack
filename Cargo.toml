@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Rob Young <rob@robyoung.digital>"]
 edition = "2018"
 
+[features]
+timers = []
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
