@@ -28,7 +28,7 @@ const tick = () => {
     capture.width = output.width;
     capture.height = output.height;
     let captureCtx = capture.getContext("2d");
-    captureCtx.putImageData(imageData.data, 0, 0);
+    captureCtx.putImageData(imageData, 0, 0);
     document.getElementById("captures").appendChild(capture);
   }
   context.putImageData(new ImageData(data, video.videoWidth, video.videoHeight), 0, 0);
