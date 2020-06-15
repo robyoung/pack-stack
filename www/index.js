@@ -7,11 +7,11 @@ const context = output.getContext("2d");
 let detector;
 
 const loadData = () => {
-  console.log(video.clientHeight, video.clientWidth);
-  output.width = video.clientWidth;
-  output.height = video.clientHeight;
+  console.log(video.videoHeight, video.videoWidth);
+  output.width = video.videoWidth;
+  output.height = video.videoHeight;
 
-  detector = Detector.new(video.clientWidth, video.clientHeight, true);
+  detector = Detector.new(video.videoWidth, video.videoHeight, true);
 
   window.requestAnimationFrame(tick);
 };
@@ -19,10 +19,10 @@ const loadData = () => {
 video.addEventListener("loadeddata", loadData, false);
 
 const tick = () => {
-  context.drawImage(video, 0, 0, video.clientWidth, video.clientHeight);
-  const imageData = context.getImageData(0, 0, video.clientWidth, video.clientHeight);
+  context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+  const imageData = context.getImageData(0, 0, video.videoWidth, video.videoHeight);
   const data = detector.detect(imageData.data);
-  context.putImageData(new ImageData(data, video.clientWidth, video.clientHeight), 0, 0);
+  context.putImageData(new ImageData(data, video.videoWidth, video.videoHeight), 0, 0);
   window.requestAnimationFrame(tick);
 };
 
@@ -38,6 +38,7 @@ const tick = () => {
   };
   navigator.mediaDevices.getUserMedia(videoConstraints).then(stream => {
     video.srcObject = stream;
+    video.play();
   });
 
 })();
