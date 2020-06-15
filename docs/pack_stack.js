@@ -137,12 +137,6 @@ async function init(input) {
     }
     const imports = {};
     imports.wbg = {};
-    imports.wbg.__wbg_time_681085ea76eaee1c = function(arg0, arg1) {
-        console.time(getStringFromWasm0(arg0, arg1));
-    };
-    imports.wbg.__wbg_timeEnd_3f372b5924311d3c = function(arg0, arg1) {
-        console.timeEnd(getStringFromWasm0(arg0, arg1));
-    };
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));
     };
