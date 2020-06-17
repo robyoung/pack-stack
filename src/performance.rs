@@ -1,7 +1,9 @@
 //! Profiling and performance monitoring tools
+#[cfg(feature = "timers")]
 use web_sys::console;
 
 pub(crate) struct Timer<'a> {
+    #[allow(dead_code)]
     name: &'a str,
 }
 
