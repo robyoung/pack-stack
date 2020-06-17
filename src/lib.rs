@@ -6,16 +6,16 @@ use image::RgbaImage;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::Clamped;
 
-mod boundary;
 mod data;
-mod edge;
+pub mod edge;
 #[cfg(target_arch = "wasm32")]
 mod performance;
+pub mod card;
 
 /// Preallocated canny edge detector
 #[wasm_bindgen]
 pub struct Detector {
-    canny: edge::Canny<edge::RectangleInRectangleWindow>,
+    detector: card::Detector,
     boundary_match: bool,
 }
 
@@ -23,17 +23,14 @@ pub struct Detector {
 impl Detector {
     /// Create a new detector of a given size
     pub fn new(width: u32, height: u32) -> Detector {
-        let boundary = boundary::get_corners(width, height);
-        let window = edge::RectangleInRectangleWindow::new(
-            boundary.grow(6),
-            boundary.shrink(7),
-        );
-        Detector {
-            canny: edge::CannyBuilder::with_window(width as usize, height as usize, window)
-                .low_threshold(50.0)
-                .build(),
-            boundary_match: false,
-        }
+        let detector = card::Detector::builder()
+            .card_edge_width(3)
+            .detection_window_width(20)
+            .low_threshold(150.0)
+            .high_threshold(200.0)
+            .build(width as usize, height as usize);
+
+        Detector { detector, boundary_match: false }
     }
 
     /// has a box been seen?
@@ -41,15 +38,19 @@ impl Detector {
         self.boundary_match
     }
 
+    fn width(&self) -> u32 {
+        self.detector.width() as u32
+    }
+
+    fn height(&self) -> u32 {
+        self.detector.height() as u32
+    }
+
     /// detect edges
     pub fn detect(&mut self, input: Clamped<Vec<u8>>) -> Clamped<Vec<u8>> {
-        let width = self.canny.width as u32;
-        let height = self.canny.height as u32;
+        let mut input = RgbaImage::from_raw(self.width(), self.height(), input.0).expect("Could not load image");
 
-        let mut input = RgbaImage::from_raw(width, height, input.0).expect("Could not load image");
-
-        self.canny.detect(&mut input);
-        self.boundary_match = boundary::detect(&mut input, self.canny.line_colour());
+        self.boundary_match = self.detector.detect(&mut input);
 
         Clamped(input.into_raw())
     }

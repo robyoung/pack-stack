@@ -16,6 +16,7 @@ use crate::performance;
 ///
 /// This is useful when you don't need to detect edges in the whole image.
 pub trait Window: Copy {
+    /// Iterate over a series of Points
     type Iterator: Iterator<Item = Point>;
 
     /// The Points that need to be visited by the edge detection operator
@@ -67,8 +68,8 @@ impl Iterator for RectangleWindowIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(next) = self.next {
-            if next[0] == self.rectangle.0[1][0] {
-                if next[1] == self.rectangle.0[1][1] {
+            if next[0] == self.rectangle.0[1][0] - 1 {
+                if next[1] == self.rectangle.0[1][1] - 1 {
                     self.next = None;
                 } else {
                     self.next = Some([self.rectangle.0[0][0], next[1] + 1]);
@@ -83,6 +84,7 @@ impl Iterator for RectangleWindowIterator {
     }
 }
 
+/// A detection window shaped like a window frame
 #[derive(Copy, Clone)]
 pub struct RectangleInRectangleWindow {
     outer: Rectangle,
@@ -90,9 +92,20 @@ pub struct RectangleInRectangleWindow {
 }
 
 impl RectangleInRectangleWindow {
+    /// Create a new window frame shared detection window
     pub fn new(outer: Rectangle, inner: Rectangle) -> Self {
         assert!(outer.contains(&inner));
         Self { outer, inner }
+    }
+
+    /// Return the inner rectangle
+    pub fn inner(&self) -> Rectangle {
+        self.inner
+    }
+
+    /// Return the outer rectangle
+    pub fn outer(&self) -> Rectangle {
+        self.outer
     }
 }
 
@@ -120,6 +133,7 @@ impl Window for RectangleInRectangleWindow {
     }
 }
 
+#[allow(missing_docs)]
 pub struct RectangleInRectangleWindowIterator {
     window: RectangleInRectangleWindow,
     next: Option<Point>,
@@ -127,14 +141,14 @@ pub struct RectangleInRectangleWindowIterator {
 
 impl Iterator for RectangleInRectangleWindowIterator {
     type Item = Point;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         match self.next {
             Some(next) => {
-                if next[0] == self.window.inner[0][0] && next[1] >= self.window.inner[0][1] && next[1] <= self.window.inner[1][1] {
+                if next[0] == self.window.inner[0][0] - 1 && next[1] >= self.window.inner[0][1] && next[1] < self.window.inner[1][1] {
                     self.next = Some([self.window.inner[1][0], next[1]]);
-                } else if next[0] == self.window.outer[1][0] {
-                    if next[1] == self.window.outer[1][1] {
+                } else if next[0] == self.window.outer[1][0] - 1 {
+                    if next[1] == self.window.outer[1][1] - 1{
                         self.next = None;
                     } else {
                         self.next = Some([self.window.outer[0][0], next[1] + 1]);
@@ -188,23 +202,27 @@ impl<T: Window> CannyBuilder<T> {
         }
     }
 
+    /// Set hysteresis low threshold
     pub fn low_threshold(&mut self, low_threshold: f32) -> &mut CannyBuilder<T> {
         self.low_threshold = Some(low_threshold);
         self
     }
 
+    /// Set hysteresis high threshold
     #[allow(dead_code)]
     pub fn high_threshold(&mut self, high_threshold: f32) -> &mut CannyBuilder<T> {
         self.high_threshold = Some(high_threshold);
         self
     }
 
+    /// Set colour to use for detected edges
     #[allow(dead_code)]
     pub fn line_colour(&mut self, line_colour: Rgba<u8>) -> &mut CannyBuilder<T> {
         self.line_colour = Some(line_colour);
         self
     }
 
+    /// Build a canny edge detector
     pub fn build(&self) -> Canny<T> {
         Canny::new(
             self.width,
@@ -217,13 +235,16 @@ impl<T: Window> CannyBuilder<T> {
     }
 }
 
+/// Canny edge detector
 pub struct Canny<T: Window> {
     gx: Vec<i16>,
     gy: Vec<i16>,
     filtered: Vec<f32>,
     supressed: Vec<f32>,
 
+    /// width of the image
     pub width: usize,
+    ///height of the image
     pub height: usize,
     low_threshold: f32,
     high_threshold: f32,
@@ -232,7 +253,7 @@ pub struct Canny<T: Window> {
 }
 
 impl<T: Window> Canny<T> {
-    pub fn new(
+    pub(crate) fn new(
         width: usize,
         height: usize,
         low_threshold: f32,
@@ -255,10 +276,12 @@ impl<T: Window> Canny<T> {
         }
     }
 
+    /// Line colour used by edge detector
     pub fn line_colour(&self) -> Rgba<u8> {
         self.line_colour
     }
 
+    /// Detect edges in an image
     pub fn detect(&mut self, src: &mut RgbaImage) {
         #[cfg(target_arch = "wasm32")]
         let timer = performance::Timer::new("canny::setup-struct");
@@ -310,7 +333,7 @@ const VERTICAL_SOBEL: [i32; 9] = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
 const HORIZONTAL_SOBEL: [i32; 9] = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
 
 /// Finds local maxima to make the edges thinner.
-pub fn non_maximum_suppression<T: Window>(
+fn non_maximum_suppression<T: Window>(
     width: usize,
     g: &Vec<f32>,
     gx: &Vec<i16>,
@@ -353,7 +376,7 @@ pub fn non_maximum_suppression<T: Window>(
 
 /// Filter out edges with the thresholds.
 /// Non-recursive breadth-first search.
-pub fn hysteresis<T: Window>(
+fn hysteresis<T: Window>(
     width: u32,
     height: u32,
     input: &Vec<f32>,
@@ -419,7 +442,7 @@ pub fn hysteresis<T: Window>(
 }
 
 #[allow(clippy::similar_names)]
-pub fn gradient<T: Window>(
+fn gradient<T: Window>(
     width: usize,
     height: usize,
     image: &[u8],
@@ -488,7 +511,7 @@ fn accumulate(acc: i32, pixel: u8, weight: i32) -> i32 {
 }
 
 // borrowed this code from: https://gist.github.com/volkansalma/2972237
-pub fn atan2_approx(y: f32, x: f32) -> f32 {
+fn atan2_approx(y: f32, x: f32) -> f32 {
     const ONEQTR_PI: f32 = f32::consts::PI / 4.0;
     const THRQTR_PI: f32 = 3.0 * f32::consts::PI / 4.0;
     let abs_y = (y).abs() + 1e-10_f32;
@@ -511,7 +534,6 @@ mod tests {
 
     use super::{gradient, CannyBuilder, RectangleWindow, RectangleInRectangleWindow, Window};
     use crate::data::{Rectangle, Point};
-    use crate::boundary::get_corners;
     use image;
     use test::Bencher;
 
@@ -530,25 +552,37 @@ mod tests {
     }
 
     #[test]
-    fn test_window() {
+    fn test_rect_window() {
         let window = RectangleWindow {
-            rectangle: Rectangle([[0, 0], [9, 9]]),
+            rectangle: Rectangle([[0, 0], [10, 10]]),
         };
         let points = window.gradient().collect::<Vec<Point>>();
 
         assert_eq!(points.len(), 100);
+        assert_eq!(points.iter().map(|&p| p[0]).max(), Some(9));
+        assert_eq!(points.iter().map(|&p| p[1]).max(), Some(9));
     }
 
+    #[test]
+    fn test_rect_in_rect_window() {
+        let window = RectangleInRectangleWindow {
+            outer: Rectangle([[0, 0], [10, 10]]),
+            inner: Rectangle([[2, 2], [6, 6]]),
+        };
+        let points = window.gradient().collect::<Vec<Point>>();
+
+        assert_eq!(points.len(), 84);
+    }
 
     #[bench]
     fn bench_detect(b: &mut Bencher) {
         let img = image::open("test_images/test.jpg").unwrap().to_rgba();
         let width = img.width();
         let height = img.height();
-        let rect = get_corners(width, height);
+        let outer = Rectangle([[0, 0], [width as usize, height as usize]]);
         let window = RectangleInRectangleWindow::new(
-            rect.grow(7),
-            rect.shrink(7),
+            outer,
+            outer.shrink(14),
         );
 
         let mut canny = CannyBuilder::with_window(width as usize, height as usize, window).build();

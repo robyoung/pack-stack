@@ -12,6 +12,10 @@ impl Rectangle {
         Self([top_left, bottom_right])
     }
 
+    pub fn from_dimensions(width: usize, height: usize) -> Self {
+        Self::new([0, 0], [width, height])
+    }
+
     pub fn top_left(&self) -> &Point {
         &self.0[0]
     }
@@ -51,6 +55,16 @@ impl Rectangle {
         )
     }
 
+    pub fn clamped_grow(&self, n: usize, rect: &Rectangle) -> Self {
+        Self::new([
+            clamp_sub(self.top_left()[0], n, rect.top_left()[0]),
+            clamp_sub(self.top_left()[1], n, rect.top_left()[1]),
+        ], [
+            clamp_add(self.bottom_right()[0], n, rect.bottom_right()[0]),
+            clamp_add(self.bottom_right()[1], n, rect.bottom_right()[1]),
+        ])
+    }
+
     pub fn shrink(&self, n: usize) -> Self {
         assert!(
             n <= self.bottom_right()[0] && n <= self.bottom_right()[1],
@@ -62,12 +76,48 @@ impl Rectangle {
         )
     }
 
+    pub fn clamped_shrink(&self, n: usize, rect: &Rectangle) -> Self {
+        Self::new([
+            clamp_add(self.top_left()[0], n, rect.bottom_right()[0]),
+            clamp_add(self.top_left()[1], n, rect.bottom_right()[1]),
+        ], [
+            clamp_sub(self.bottom_right()[0], n, rect.top_left()[0]),
+            clamp_sub(self.bottom_right()[1], n, rect.top_left()[1]),
+        ])
+    }
+
     pub fn contains(&self, other: &Rectangle) -> bool {
         self[0][0] < other[0][0]
             && self[0][1] < other[0][1]
             && self[1][0] > other[1][0]
             && self[1][1] > other[1][1]
     }
+
+    pub fn draw<P: image::Pixel + 'static>(&self, img: &mut image::ImageBuffer<P, Vec<P::Subpixel>>, colour: P) {
+        for y in self.iter().map(|&p| p[1]) {
+            for x in self.x_range() {
+                img.put_pixel(x as u32, y as u32, colour);
+            }
+        }
+
+        for x in self.iter().map(|&p| p[0]) {
+            for y in self.y_range() {
+                img.put_pixel(x as u32, y as u32, colour);
+            }
+        }
+    }
+}
+
+fn clamp_sub(value: usize, n: usize, min: usize) -> usize {
+    if n + min > value {
+        min
+    } else {
+        value - n
+    }
+}
+
+fn clamp_add(value: usize, n: usize, max: usize) -> usize {
+    std::cmp::min(value + n + 1, max) - 1
 }
 
 impl std::ops::Index<usize> for Rectangle {
