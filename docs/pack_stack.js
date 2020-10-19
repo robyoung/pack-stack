@@ -87,14 +87,20 @@ export class Detector {
     * @returns {Uint8ClampedArray}
     */
     detect(input) {
-        var ptr0 = passArray8ToWasm0(input, wasm.__wbindgen_malloc);
-        var len0 = WASM_VECTOR_LEN;
-        wasm.detector_detect(8, this.ptr, ptr0, len0);
-        var r0 = getInt32Memory0()[8 / 4 + 0];
-        var r1 = getInt32Memory0()[8 / 4 + 1];
-        var v1 = getClampedArrayU8FromWasm0(r0, r1).slice();
-        wasm.__wbindgen_free(r0, r1 * 1);
-        return v1;
+        try {
+            const retptr = wasm.__wbindgen_export_0.value - 16;
+            wasm.__wbindgen_export_0.value = retptr;
+            var ptr0 = passArray8ToWasm0(input, wasm.__wbindgen_malloc);
+            var len0 = WASM_VECTOR_LEN;
+            wasm.detector_detect(retptr, this.ptr, ptr0, len0);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            var v1 = getClampedArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_free(r0, r1 * 1);
+            return v1;
+        } finally {
+            wasm.__wbindgen_export_0.value += 16;
+        }
     }
 }
 
