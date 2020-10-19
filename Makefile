@@ -8,4 +8,4 @@ pages: build
 	git commit
 
 build:
-	rustup run nightly wasm-pack build --target=web
+	rustup run nightly wasm-pack build --target=web -- --features timers
